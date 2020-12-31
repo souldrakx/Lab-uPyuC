@@ -1,28 +1,8 @@
-#include <avr/io.h>
+ï»¿#include <avr/io.h>
 #include <avr/interrupt.h>
 #include <inttypes.h>
 
-#define BUFFER_SIZE 64
-
-#define MYUBRR(baud) ( ( ( 16000000ul/16 ) / baud )-1 )
-#define MOD(n) ( ( n ) & ( BUFFER_SIZE-1 ) )
-#define IF_BUFFER_EMPTY(buffer) ( buffer.in_idx == buffer.out_idx )
-#define IF_BUFFER_FULL(buffer) ( buffer.in_idx == MOD(buffer.out_idx - 1) )
-/*
-#define BLACK 30
-#define RED 31
-#define GREEN 32
-#define YELLOW 33
-#define BLUE 34
-#define PURPLE 35
-#define CYAN 36
-#define WHITE 37
-*/
-typedef struct{
-	char buffer[BUFFER_SIZE]; /* espacio reservado */
-	volatile unsigned char in_idx; /* indice entrada (Head) */
-	volatile unsigned char out_idx; /* indice entrada (tail) */
-} ring_buffer_t;
+#include "UART.h"
 
 // Prototypes
 ring_buffer_t buffer_rx0;
@@ -36,6 +16,9 @@ ring_buffer_t buffer_tx2;
 
 ring_buffer_t buffer_rx3;
 ring_buffer_t buffer_tx3;
+
+ring_buffer_t buffer_rxn;
+ring_buffer_t buffer_txn;
 
 // Initialization
 void UART_Buffer_Ini(){
@@ -68,20 +51,20 @@ void UART_Ini(uint8_t com, uint16_t baudrate, uint8_t size, uint8_t parity, uint
 	
 	switch(com){
 		case 0 :
-			case 1:
-				case 2:
-				UCSRnA = (uint8_t*)0xC0 +( 8 * com);
-				UCSRnB = (uint8_t*)0xC1 +( 8 * com);
-				UCSRnC = (uint8_t*)0xC2 +( 8 * com);
-				UBRRn = (uint16_t*)0xC4 +( 8 * com);
-				break;
+		case 1:
+		case 2:
+		UCSRnA = (uint8_t*)0xC0 +( 8 * com);
+		UCSRnB = (uint8_t*)0xC1 +( 8 * com);
+		UCSRnC = (uint8_t*)0xC2 +( 8 * com);
+		UBRRn = (uint16_t*)0xC4 +( 8 * com);
+		break;
 		
 		case 3:
-			UCSRnA = (uint8_t*)0x130;
-			UCSRnB = (uint8_t*)0x131;
-			UCSRnC = (uint8_t*)0x132;
-			UBRRn = (uint16_t*)0x134;
-			break;
+		UCSRnA = (uint8_t*)0x130;
+		UCSRnB = (uint8_t*)0x131;
+		UCSRnC = (uint8_t*)0x132;
+		UBRRn = (uint16_t*)0x134;
+		break;
 	}
 	
 	if(parity == 1){
@@ -89,8 +72,8 @@ void UART_Ini(uint8_t com, uint16_t baudrate, uint8_t size, uint8_t parity, uint
 	}
 	
 	
-	
-	*UBRRn = MYUBRR(baudrate);
+	//*UBRRn = 207;
+	*UBRRn = MyUBRR(baudrate);
 	
 	*UCSRnA = 0;
 	*UCSRnB = (1 << RXEN0) | (1 << TXEN0) | (1<<RXCIE0) & ~(1 << UCSZ02);
@@ -108,31 +91,31 @@ void UART_puts(uint8_t com, char *str){
 void UART_putchar(uint8_t com, char data){
 	switch(com){
 		case 0:
-			while ( IF_BUFFER_FULL(buffer_tx0) );
-			
-			buffer_tx0.buffer[buffer_tx0.in_idx++] = data;
-			UCSR0B |= (1 << UDRIE0);
+		while ( IF_BUFFER_FULL(buffer_tx0) );
+		
+		buffer_tx0.buffer[buffer_tx0.in_idx++] = data;
+		UCSR0B |= (1 << UDRIE0);
 		break;
 		
 		case 1:
-			while ( IF_BUFFER_FULL(buffer_tx1) );
-			
-			buffer_tx1.buffer[buffer_tx1.in_idx++] = data;
-			UCSR1B |= (1 << UDRIE1);
+		while ( IF_BUFFER_FULL(buffer_tx1) );
+		
+		buffer_tx1.buffer[buffer_tx1.in_idx++] = data;
+		UCSR1B |= (1 << UDRIE1);
 		break;
 		
 		case 2:
-			while ( IF_BUFFER_FULL(buffer_tx2) );
-			
-			buffer_tx2.buffer[buffer_tx2.in_idx++] = data;
-			UCSR2B |= (1 << UDRIE2);
+		while ( IF_BUFFER_FULL(buffer_tx2) );
+		
+		buffer_tx2.buffer[buffer_tx2.in_idx++] = data;
+		UCSR2B |= (1 << UDRIE2);
 		break;
 		
 		case 3:
-			while ( IF_BUFFER_FULL(buffer_tx3) );
-			
-			buffer_tx3.buffer[buffer_tx3.in_idx++] = data;
-			UCSR3B |= (1 << UDRIE3);
+		while ( IF_BUFFER_FULL(buffer_tx3) );
+		
+		buffer_tx3.buffer[buffer_tx3.in_idx++] = data;
+		UCSR3B |= (1 << UDRIE3);
 		break;
 	}
 }
@@ -141,45 +124,45 @@ void UART_putchar(uint8_t com, char data){
 uint8_t UART_available(uint8_t com){
 	switch(com){
 		case 0:
-			return (IF_BUFFER_EMPTY(buffer_tx0) ? 0 : 1);
+		return (IF_BUFFER_EMPTY(buffer_tx0) ? 0 : 1);
 		break;
 		case 1:
-			return (IF_BUFFER_EMPTY(buffer_tx1) ? 0 : 1);
+		return (IF_BUFFER_EMPTY(buffer_tx1) ? 0 : 1);
 		break;
 		case 2:
-			return (IF_BUFFER_EMPTY(buffer_tx2) ? 0 : 1);
+		return (IF_BUFFER_EMPTY(buffer_tx2) ? 0 : 1);
 		break;
 		case 3:
-			return (IF_BUFFER_EMPTY(buffer_tx3) ? 0 : 1);
+		return (IF_BUFFER_EMPTY(buffer_tx3) ? 0 : 1);
 		break;
 	}
-	return -1; 
+	return -1;
 }
 
 char UART_getchar(uint8_t com ){
 	char data =0;
 	switch(com){
 		case 0:
-			while(IF_BUFFER_EMPTY(buffer_rx0));
-			data = buffer_rx0.buffer[buffer_rx0.out_idx++];
+		while(IF_BUFFER_EMPTY(buffer_rx0));
+		data = buffer_rx0.buffer[buffer_rx0.out_idx++];
 		break;
 		
 		case 1:
-			while(IF_BUFFER_EMPTY(buffer_rx1));
-			data = buffer_rx1.buffer[buffer_rx1.out_idx++];
+		while(IF_BUFFER_EMPTY(buffer_rx1));
+		data = buffer_rx1.buffer[buffer_rx1.out_idx++];
 		break;
 		
 		case 2:
-			while(IF_BUFFER_EMPTY(buffer_rx2));
-			data = buffer_rx2.buffer[buffer_rx2.out_idx++];
+		while(IF_BUFFER_EMPTY(buffer_rx2));
+		data = buffer_rx2.buffer[buffer_rx2.out_idx++];
 		break;
 		
 		case 3:
-			while(IF_BUFFER_EMPTY(buffer_rx3));
-			data = buffer_rx3.buffer[buffer_rx3.out_idx++];
+		while(IF_BUFFER_EMPTY(buffer_rx3));
+		data = buffer_rx3.buffer[buffer_rx3.out_idx++];
 		break;
 	}
-	return data;	
+	return data;
 }
 
 void UART_gets(uint8_t com, char *str){
@@ -205,7 +188,7 @@ void UART_gets(uint8_t com, char *str){
 
 // Escape sequences
 void UART_clrscr( uint8_t com ){
-	UART_puts(com, "\033[2J");	
+	UART_puts(com, "\033[2J");
 }
 
 void UART_setColor(uint8_t com, uint8_t color){
@@ -214,19 +197,19 @@ void UART_setColor(uint8_t com, uint8_t color){
 	itoa(color,colors,10);
 	UART_puts(com, "\033[");
 	UART_puts(com, colors);
-	UART_puts(com, ";40m");	
+	UART_puts(com, ";40m");
 }
 
 void UART_gotoxy(uint8_t com, uint8_t x, uint8_t y){
-	    char px[8],py[8];
+	char px[8],py[8];
 
-	    itoa(x,px,10);
-	    itoa(y,py,10);
-	    UART_puts(com,"\033[");
-	    UART_puts(com,py);
-	    UART_puts(com,";");
-	    UART_puts(com,px);
-	    UART_puts(com,"f");
+	itoa(x,px,10);
+	itoa(y,py,10);
+	UART_puts(com,"\033[");
+	UART_puts(com,py);
+	UART_puts(com,";");
+	UART_puts(com,px);
+	UART_puts(com,"f");
 }
 
 // Utils
@@ -278,7 +261,7 @@ uint16_t atoi(char *str){
 
 // ISRs
 //ISR( USARTx_RX_vect )
-ISR( USART0_RX_vect ){ //Rutina de servicio de interrupción para el evento de recepción completa. Esta rutina inserta a la cola circular el dato que fue recibido por el UARTx.
+ISR( USART0_RX_vect ){ //Rutina de servicio de interrupciï¿½n para el evento de recepciï¿½n completa. Esta rutina inserta a la cola circular el dato que fue recibido por el UARTx.
 	while(IF_BUFFER_FULL(buffer_rx0));
 	
 	buffer_rx0.buffer[buffer_rx0.in_idx++] = UDR0;
@@ -337,4 +320,17 @@ ISR( USART3_UDRE_vect ){
 	else{
 		UDR3=buffer_tx3.buffer[buffer_tx3.out_idx++];
 	}
+}
+
+void UART_AutoBaudRate(){
+	DDRE = ~(1<<PE0);
+	TCCR0A = 0;
+	TCCR0B |= (2<<CS00);
+
+	while (PINE & 1<<PE0);
+	TCNT0 = 0;
+	
+	while (!(PINE & 1<<PE0));
+	TCCR0B =0;
+	UBRR0 = TCNT0-1;
 }

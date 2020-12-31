@@ -1,14 +1,14 @@
-#if UART_H_
+#ifndef UART_H_
+
 #define UART_H_
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <inttypes.h>
-#include "UART.h"
 
 // Prototypes
 //Codigo dado en la practica
-/*
+
 #define BUFFER_SIZE 64
 
 #define MYUBRR(baud) ( ( ( 16000000ul/8 ) / baud )-1 )
@@ -18,16 +18,16 @@
 
 typedef struct{
 	char buffer[BUFFER_SIZE]; /* espacio reservado */
-//	volatile unsigned char in_idx; /* indice entrada (Head) */
-//	volatile unsigned char out_idx; /* indice entrada (tail) */
-//} ring_buffer_t;
+	volatile unsigned char in_idx; /* indice entrada (Head) */
+	volatile unsigned char out_idx; /* indice entrada (tail) */
+} ring_buffer_t;
 //Fin de codigo dado en la practica
 
 
-/*
+
 enum Color{
 	BLACK = 30,RED,GREEN,YELLOW,BLUE,PURPLE,CYAN,WHITE	
-};*/
+};
 
 
 // Initialization
@@ -51,5 +51,7 @@ void UART_gotoxy(uint8_t com, uint8_t x, uint8_t y);
 // Utils
 void itoa(uint16_t number, char* str, uint8_t base);
 uint16_t atoi(char *str);
+
+void UART_AutoBaudRate();
 
 #endif
