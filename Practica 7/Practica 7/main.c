@@ -3,6 +3,7 @@
 // Macros
 #define SetBitPort(port, bit) __asm__ ( "sbi %0,%1" : :"I" ( (uint8_t) (_SFR_IO_ADDR(port))), "I"( (uint8_t) (bit) ) )
 #define ClrBitPort(port, bit) __asm__ ( "cbi %0,%1" : :"I" ( (uint8_t) (_SFR_IO_ADDR(port))), "I"( (uint8_t) (bit) ) )
+#define NOP() __asm__ __volatile__("nop")
 
 enum ButtonPressStates{
 	eBtnUndefined = 0,
@@ -48,46 +49,16 @@ int main(void){
 void InitPorts(void){
 	DDRF = 0x40;
 	PORTF = 0x80;
-}
-/*
-uint8_t checkBtn(){
-	static uint32_t hit_time = 0;
-	static uint8_t prev_state = 1;
-
-	if ( bit_is_clear(PINF,PF7) ) {
-		
-		if(prev_state){
-			prev_state = 0;
-			hit_time = millis;
-		}
-
-	}
-	else{
-		if( (millis - hit_time) > 200 && prev_state == 0){
-			
-			prev_state=1;
-
-			if((millis - hit_time) < 1000){
-				return 1;
-			}
-			else {
-				return 2;
-			}
-			
-		}
-		
-	}
-	
-	return 0;
+	NOP();
 }
 
-*/
 
 void updateLeds(void){
 static uint8_t led_num = 0;
 
 PORTF &=  ~(1<<PF0) & ~(1<<PF1) & ~(1<<PF2) & ~(1<<PF3);
 DDRF &= ~(1<<DDF0) & ~(1<<DDF1) & ~(1<<DDF2) & ~(1<<DDF3);
+NOP();
 
 if (	(globalCounter) & (1<<led_num)){
 
@@ -162,20 +133,26 @@ void delay(uint16_t ms){
   }
 }
 
-uint8_t checkBtn(void){
-	static uint8_t bandera = 0,aux;
-	if(!(PINF&(1<<PF7)) && !bandera){
-		aux=millis;
-		bandera=1;
-	}
-	if((aux+40) < millis && bandera)
-	if((PINF&(1<<PF7))){
-		bandera=0;
-		if((aux+1000)> millis)
-		return  1;
-		else
-		return  2;
-	}
-	
-	return  1;
+uint8_t checkBtn(){
+	static uint32_t hit_time = 0;
+	static uint8_t prev_state = 1;
+
+	if ( bit_is_clear(PINF,PF7) ) {
+		if(prev_state){
+			prev_state = 0;
+			hit_time = millis;
+		}
+  }
+	else{
+  		if( (millis - hit_time) > 100 && prev_state == 0){	
+			prev_state=1;
+			if((millis - hit_time) > 999){ 
+				return 2;
+			}
+			else {
+				return 1;
+			}
+		}    
+  }
+  return 0;
 }
